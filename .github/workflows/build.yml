@@ -29,6 +29,12 @@ jobs:
           rm -rf cd-src/.git
           ls cd-src
 
+      - name: Install signing tools
+        run: |
+          brew install ldid
+          ldid -v || ldid --version || true
+          echo "$THEOS/bin" >> "$GITHUB_PATH"
+
       - name: Show toolchain
         run: |
           xcodebuild -version || true
