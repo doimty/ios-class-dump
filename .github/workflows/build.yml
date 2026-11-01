@@ -48,22 +48,16 @@ jobs:
           echo "--- packages ---"
           ls -la packages/
 
-      - name: Unpack for inspection
+      - name: List packages
         run: |
-          cd cd-src/packages
-          mkdir -p out
-          for deb in *.deb; do
+          ls -la cd-src/packages/
+          for deb in cd-src/packages/*.deb; do
             echo "== $deb"
-            dpkg-deb -I "$deb" || true
-            dpkg-deb -x "$deb" out
+            file "$deb"
+            tar -tf "$deb" || true
           done
-          find out -type f | head -20
-          file out/usr/bin/class-dump || true
-
       - uses: actions/upload-artifact@v4
         with:
           name: class-dump-deb
-          path: |
-            cd-src/packages/*.deb
-            cd-src/packages/out/usr/bin/class-dump
+          path: cd-src/packages/*.deb
           if-no-files-found: error
