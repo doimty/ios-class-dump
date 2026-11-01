@@ -35,7 +35,7 @@ jobs:
 
       - name: Install signing tools
         run: |
-          brew install ldid
+          brew install ldid dpkg
           ldid -v || ldid --version || true
           echo "$THEOS/bin" >> "$GITHUB_PATH"
 
@@ -52,14 +52,29 @@ jobs:
           echo "--- packages ---"
           ls -la packages/
 
-      - name: List packages
+      - name: Repackage for roothide (iphoneos-arm64e)
         run: |
-          ls -la cd-src/packages/
-          for deb in cd-src/packages/*.deb; do
-            echo "== $deb"
-            file "$deb"
-            tar -tf "$deb" || true
-          done
+          cd cd-src/packages
+          set -e
+          SRC="$(ls class-dump_*.deb | head -1)"
+          echo "source: $SRC"
+          rm -rf pkgroot
+          dpkg-deb -R "$SRC" pkgroot
+          echo "--- control before ---"
+          cat pkgroot/DEBIAN/control
+          # roothide devices are iphoneos-arm64e; the upstream control file says
+          # iphoneos-arm, which is the rootful arch and cannot be installed
+          # without --force-architecture.
+          sed -i '' 's/^Architecture:.*/Architecture: iphoneos-arm64e/' pkgroot/DEBIAN/control
+          sed -i '' 's/^Depends:.*/Depends: firmware (>= 15.0), roothide/' pkgroot/DEBIAN/control
+          echo "--- control after ---"
+          cat pkgroot/DEBIAN/control
+          OUT="class-dump_3.5.1_iphoneos-arm64e.deb"
+          rm -f *.deb
+          dpkg-deb -b pkgroot "$OUT"
+          dpkg-deb -I "$OUT"
+          echo "--- payload ---"
+          dpkg-deb -c "$OUT"
       - uses: actions/upload-artifact@v4
         with:
           name: class-dump-deb
