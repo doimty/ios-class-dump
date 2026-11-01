@@ -1,0 +1,63 @@
+name: build-class-dump
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      THEOS: ${{ github.workspace }}/theos
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          git clone --recursive --depth 1 https://github.com/theos/theos.git "$THEOS"
+          mkdir -p "$THEOS/sdks"
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          echo "iPhoneOS SDK: $SDK"
+          ln -sfn "$SDK" "$THEOS/sdks/iPhoneOS.sdk"
+          ls -l "$THEOS/sdks"
+
+      - name: Fetch class-dump sources
+        run: |
+          git clone --depth 1 https://github.com/okanon/class-dump.ios.git cd-src
+          rm -rf cd-src/.git
+          ls cd-src
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version || true
+          clang --version
+          echo "THEOS=$THEOS"
+
+      - name: Build package
+        run: |
+          cd cd-src
+          make package FINALPACKAGE=1 THEOS="$THEOS" 2>&1 | tail -40
+          echo "--- packages ---"
+          ls -la packages/
+
+      - name: Unpack for inspection
+        run: |
+          cd cd-src/packages
+          mkdir -p out
+          for deb in *.deb; do
+            echo "== $deb"
+            dpkg-deb -I "$deb" || true
+            dpkg-deb -x "$deb" out
+          done
+          find out -type f | head -20
+          file out/usr/bin/class-dump || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: class-dump-deb
+          path: |
+            cd-src/packages/*.deb
+            cd-src/packages/out/usr/bin/class-dump
+          if-no-files-found: error
