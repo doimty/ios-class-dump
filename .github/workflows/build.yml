@@ -27,7 +27,11 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/okanon/class-dump.ios.git cd-src
           rm -rf cd-src/.git
-          ls cd-src
+          # The upstream Makefile links UIKit, which makes iOS treat this CLI as a
+          # GUI process and sandbox it away from the filesystem. class-dump only
+          # needs Foundation.
+          sed -i '' 's/class-dump_FRAMEWORKS = UIKit/class-dump_FRAMEWORKS = Foundation/' cd-src/Makefile
+          grep -n 'FRAMEWORKS' cd-src/Makefile
 
       - name: Install signing tools
         run: |
